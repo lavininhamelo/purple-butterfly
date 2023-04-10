@@ -6,10 +6,8 @@ type NewContentTransferEventInput = {
     tokenId: string;
 }
 
-class NewContentTransferEvent extends EventInterface<NewContentTransferEventInput> {
+export class NewContentTransferEvent extends EventInterface<NewContentTransferEventInput> {
   constructor(eventData: NewContentTransferEventInput) {
     super(eventData);
   }
-}
-
-export default NewContentTransferEvent;
+};

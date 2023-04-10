@@ -1,7 +1,9 @@
 import EventDispatcherInterface from "./interfaces/event-dispatcher.interface";
 import EventHandlerInterface from "./interfaces/event-handler.interface";
 import eventInterface from "./interfaces/event.interface";
+import eventName from "./index";
 
+type eventNames = keyof eventName;
 export default class EventDispatcher implements EventDispatcherInterface {
   private eventHandlers: { [eventName: string]: EventHandlerInterface[] } = {};
 
@@ -9,14 +11,14 @@ export default class EventDispatcher implements EventDispatcherInterface {
     return this.eventHandlers;
   }
 
-  register(eventName: string, eventHandler: EventHandlerInterface): void {
+  register(eventName: eventNames, eventHandler: EventHandlerInterface): void {
     if (!this.eventHandlers[eventName]) {
       this.eventHandlers[eventName] = [];
     }
     this.eventHandlers[eventName].push(eventHandler);
   }
 
-  unregister(eventName: string, eventHandler: EventHandlerInterface): void {
+  unregister(eventName: eventNames, eventHandler: EventHandlerInterface): void {
     if (this.eventHandlers[eventName]) {
       const index = this.eventHandlers[eventName].indexOf(eventHandler);
       if (index !== -1) {

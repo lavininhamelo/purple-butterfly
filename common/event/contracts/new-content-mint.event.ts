@@ -6,10 +6,8 @@ type NewMintTransferEventInput = {
     content: string;
 }
 
-class NewMintTransferEvent extends EventInterface<NewMintTransferEventInput> {
+export class NewMintTransferEvent extends EventInterface<NewMintTransferEventInput> {
   constructor(eventData: NewMintTransferEventInput) {
     super(eventData);
   }
-}
-
-export default NewMintTransferEvent;
+};
