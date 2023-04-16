@@ -1,0 +1,12 @@
+{
+  "name": "contract-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Lavinia Melo",
+  "license": "MIT",
+  "devDependencies": {
+    "@openzeppelin/contracts": "^4.8.2",
+    "chai": "^4.3.7",
+    "ethers": "^6.3.0"
+  }
+}
