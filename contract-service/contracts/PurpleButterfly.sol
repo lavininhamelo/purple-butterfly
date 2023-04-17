@@ -9,12 +9,12 @@ import "./PurpleButterflyToken.sol";
 
 /// @custom:security-contact laviniascmelo@gmail.com
 contract PurpleButterfly is ERC721, ERC721Burnable, AccessControl {
+
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     using ECDSA for bytes32;
 
     PurpleButterflyToken private _pbftk;
-
     constructor() ERC721("PurpleButterfly", "PBFLY") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
@@ -33,6 +33,7 @@ contract PurpleButterfly is ERC721, ERC721Burnable, AccessControl {
 
     mapping(uint256 => Post) public posts;
     mapping(uint256 => uint256) public likes;
+    mapping(bytes => bool) public signatures;
 
     struct Post {
         string content;
@@ -43,28 +44,27 @@ contract PurpleButterfly is ERC721, ERC721Burnable, AccessControl {
     event PostMinted(uint256 tokenId, address owner, string content);
     event PostLiked(uint256 indexed tokenId, address indexed liker);
     event CommentMinted(uint256 tokenId, address owner, string content, uint256 parent);
-    event Log(bytes32 message);
 
     function mintPost(
         string memory content,
         bytes memory signature,
-        bytes32 messageHash,
         uint256 tokenId
     ) public payable {
-        require(!_exists(tokenId), "Token already minted");
+        require(!_exists(tokenId), "error-token-already-exists");
         
         require(
             _pbftk.balanceOf(_msgSender()) >= 1 ether,
-            "Not enough tokens to MINT"
+            "error-not-enough-tokens"
         );
         
-        require(!verifySignature(tokenId, messageHash, signature), "Invalid signature");
+        require(!verifySignature(tokenId, signature), "error-invalid-signature");
         _pbftk.chargeUser(_msgSender(), address(_pbftk), 1 ether);
         _mint(msg.sender, tokenId);
 
 
         posts[tokenId] = Post(content, _msgSender(), 0);
         likes[tokenId] = 0;
+        signatures[signature] = true;
 
         emit PostMinted(tokenId, _msgSender(), content);
     }
@@ -75,15 +75,12 @@ contract PurpleButterfly is ERC721, ERC721Burnable, AccessControl {
 
     function verifySignature(
         uint256 tokenId,
-        bytes32 messageHash,
         bytes memory signature
     ) public view returns (bool) {
+        require(!_exists(tokenId), "error-token-already-exists");
+        require(!signatures[signature], "error-signature-already-exists");
         
-
-        require(!_exists(tokenId), "Token ID already exists");
-        bytes32 newMessageHash = createHash(tokenId);
-
-        require(newMessageHash == messageHash, "Message hash does not match");
+        bytes32 messageHash = createHash(tokenId);
 
         address owner = address(this);
         address signer = messageHash.toEthSignedMessageHash().recover(
@@ -94,11 +91,11 @@ contract PurpleButterfly is ERC721, ERC721Burnable, AccessControl {
     }
 
     function likePost(uint256 tokenId) public {
-        require(_exists(tokenId), "Invalid token");
-        require(_msgSender() != ownerOf(tokenId), "Can't like own content");
+        require(_exists(tokenId), "error-invalid-token");
+        require(_msgSender() != ownerOf(tokenId), "error-cannot-like-yourself");
         require(
             _pbftk.balanceOf(_msgSender()) > 0,
-            "Not enough tokens to give a like"
+            "error-not-enough-tokens"
         );
 
         address contentOwner = ownerOf(tokenId);
@@ -110,24 +107,23 @@ contract PurpleButterfly is ERC721, ERC721Burnable, AccessControl {
     function mintComment(
         string memory content,
         bytes memory signature,
-        bytes32 messageHash,
         uint256 tokenId,
         uint256 parentTokenId
     ) public payable {
-        require(!_exists(tokenId), "Token already minted");
+        require(!_exists(tokenId), "error-token-already-exists");
         
         require(
             _pbftk.balanceOf(_msgSender()) >= 1 ether,
-            "Not enough tokens to MINT"
+            "error-not-enough-tokens"
         );
         
-        require(!verifySignature(tokenId, messageHash, signature), "Invalid signature");
+        require(!verifySignature(tokenId, signature), "error-invalid-signature");
         _pbftk.chargeUser(_msgSender(), address(_pbftk), 1 ether);
         _mint(msg.sender, tokenId);
 
-
         posts[tokenId] = Post(content, _msgSender(), parentTokenId);
         likes[tokenId] = 0;
+        signatures[signature] = true;
 
         emit CommentMinted(tokenId, _msgSender(), content, parentTokenId);
     }

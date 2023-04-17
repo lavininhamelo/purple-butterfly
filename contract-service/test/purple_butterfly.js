@@ -7,6 +7,11 @@ contract("PurpleButterfly", function (accounts) {
     let pbf;
     let pbftk;
 
+    const getBalance = async (address) => {
+      const balance = await pbftk.balanceOf.call(address);
+      return parseInt(web3.utils.fromWei(balance.toString(), "ether"));
+    };
+
     beforeEach(async () => {
       pbftk = await PurpleButterflyToken.deployed();
       pbf = await PurpleButterfly.deployed();
@@ -27,88 +32,96 @@ contract("PurpleButterfly", function (accounts) {
     });
 
     it("should have enough tokens", async function () {
-      const balanceOf = await pbftk.balanceOf.call(owner);
-      const totalBalance = web3.utils.fromWei(balanceOf.toString(), "ether");
-      assert.equal(totalBalance, "1000");
+      const totalBalance = await getBalance(owner);
+      assert.equal(totalBalance, 1000);
     });
 
     it("should mint a new post", async function () {
       const tokenId = "1234";
       const privateKey = "6a73e8a78317789919f7c5b4cf46a04a73497445441efd609379e5e5eac10518";
       const signature = await web3.eth.accounts.sign(tokenId, privateKey);
+      const oldBalance = await getBalance(owner);
+
       await pbf.mintPost("test", signature.signature, tokenId);
       const post = await pbf.posts(tokenId);
-      const balanceOf = await pbftk.balanceOf.call(owner);
-      const totalBalance = web3.utils.fromWei(balanceOf.toString(), "ether");
+      const totalBalance = await getBalance(owner);
+
       assert(post.content === "test");
       assert(post.author === owner);
       assert((await pbf.ownerOf(tokenId)) === owner);
-      assert(totalBalance === "999");
+      assert(totalBalance === oldBalance - 1);
     });
 
     it("should not mint with invalid signature", async function () {
-      const tokenId = "1234";
+      const tokenId = "5678";
       const privateKey = "6a73e8a78317789919f7c5b4cf46a04a73497445441efd609379e5e5eac10518";
       const signature = await web3.eth.accounts.sign(tokenId, privateKey);
-      const invalidSignature = signature.signature.slice(1);
+      const invalidSignature = signature.signature.slice(0, signature.signature.length - 1) + "a";
+
       try {
         await pbf.mintPost("test", invalidSignature, tokenId);
         assert(false);
       } catch (error) {
-        assert(error);
+        assert(error.message.includes("invalid signature"));
       }
     });
 
     it("should throw an error when the token was already minted", async function () {
-      const tokenId = "1234";
+      const tokenId = "90125";
       const privateKey = "6a73e8a78317789919f7c5b4cf46a04a73497445441efd609379e5e5eac10518";
       const signature = await web3.eth.accounts.sign(tokenId, privateKey);
 
+      await pbf.mintPost("test", signature.signature, tokenId);
+
       try {
         await pbf.mintPost("test", signature.signature, tokenId);
-        await pbf.mintPost("test", signature.signature, tokenId);
-        assert(false === true);
+        assert(false);
       } catch (error) {
-        assert(error);
+        assert(error.message.includes("error-token-already-exists"));
       }
     });
 
     it("should mint a new comment", async function () {
-      const parentId = "123123";
-      const tokenId = "1234678";
+      const parentId = "999";
+      const tokenId = "888";
       const privateKey = "6a73e8a78317789919f7c5b4cf46a04a73497445441efd609379e5e5eac10518";
       const signature = await web3.eth.accounts.sign(parentId, privateKey);
-      
+      const signatureCommnet = await web3.eth.accounts.sign(tokenId, privateKey);
+      const oldBalance = await getBalance(owner);
+
       await pbf.mintPost("test", signature.signature, parentId);
-      await pbf.mintComment("test", signature.signature, tokenId, parentId);
+      await pbf.mintComment("test", signatureCommnet.signature, tokenId, parentId);
       const post = await pbf.posts(tokenId);
-      const balanceOf = await pbftk.balanceOf.call(owner);
-      const totalBalance = web3.utils.fromWei(balanceOf.toString(), "ether");
-     
+      const postOwner = await pbf.ownerOf(tokenId);
+      const totalBalance = await getBalance(owner);
+
       assert(post.content === "test");
       assert(post.author === owner);
       assert(post.parent.toString() === parentId);
-      assert((await pbf.ownerOf(tokenId)) === owner);
-      assert(totalBalance === "997");
+      assert(postOwner === owner);
+      assert(totalBalance === oldBalance - 2);
     });
 
     it("should like a post", async function () {
       const addr2 = accounts[1];
       await pbftk.transfer(addr2, web3.utils.toWei("10", "ether"));
-      const tokenId = "12346789";
+
+      const tokenId = "777";
       const privateKey = "6a73e8a78317789919f7c5b4cf46a04a73497445441efd609379e5e5eac10518";
       const signature = await web3.eth.accounts.sign(tokenId, privateKey);
-     
+      const oldBalanceOwner = await getBalance(owner);
+      const oldBalanceAddr2 = await getBalance(addr2);
 
-      await pbf.mintPost("test", signature.signature, tokenId);
+      await pbf.mintPost("test", signature.signature, tokenId, { from: owner });
       await pbf.likePost(tokenId, { from: addr2 });
-      const post = await pbf.likes(tokenId);
-      const ownerBalance = (await pbftk.balanceOf.call(owner)).toString();
-      const addr2Balance = (await pbftk.balanceOf.call(addr2)).toString();
-      
-      assert(post.toString() === "1");
-      assert(web3.utils.fromWei(ownerBalance, "ether") === "987");
-      assert(web3.utils.fromWei(addr2Balance, "ether") === "9");
+
+      const postLike = await pbf.likes(tokenId);
+      const ownerBalance = await getBalance(owner);
+      const addr2Balance = await getBalance(addr2);
+
+      assert(postLike.toString() === "1");
+      assert(addr2Balance === oldBalanceAddr2 - 1);
+      assert(ownerBalance === oldBalanceOwner);
     });
   });
 });
